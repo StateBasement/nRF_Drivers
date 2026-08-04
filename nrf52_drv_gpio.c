@@ -1,6 +1,9 @@
 
 #include "nrf52_drv_gpio.h"
 
+#include "nrfx_gpiote.h"
+
+#include "user_define.h"
 
 void GPIO_Handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 {
@@ -30,7 +33,7 @@ void GPIO_Handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
         
         case NRF_GPIOTE_POLARITY_TOGGLE:
             switch (pin)
-            {        
+            {
                 case USER_TILT_PIN:
                     // Set_Tilt_Count(Get_Tilt_Count()+1);
                 break;
@@ -48,8 +51,10 @@ void GPIO_Handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
 }
 
 
-
-void Init_GPIO(_strGPIO config)
+/** @brief      Initialize and configure GPIO
+ * 
+ */
+void Init_GPIO(sGPIO_config_t config)
 {
     uint32_t err_code;
 
@@ -62,16 +67,38 @@ void Init_GPIO(_strGPIO config)
     switch (config.direct)
     {
         case INPUT:
-            {
-                nrfx_gpiote_in_config_t in_config = NRFX_GPIOTE_CONFIG_IN_SENSE_HITOLO(true);
-                in_config.pull  = config.pull_config;
-                in_config.sense = config.edge;
+        {
+            nrfx_gpiote_in_config_t in_config;
 
-                err_code = nrfx_gpiote_in_init(config.pin_number, &in_config ,GPIO_Handler);
-                APP_ERROR_CHECK(err_code);
+            switch (config.edge)    //Configures the macros based on the input trigger edge. 
+            {
+                case NRF_GPIOTE_POLARITY_LOTOHI:
+                    in_config.sense = NRF_GPIOTE_POLARITY_LOTOHI;                    
+                break;
                 
-                nrfx_gpiote_in_event_enable(config.pin_number, true);
+                case NRF_GPIOTE_POLARITY_HITOLO:
+                    in_config.sense = NRF_GPIOTE_POLARITY_HITOLO;
+                break;
+                
+                case NRF_GPIOTE_POLARITY_TOGGLE:
+                    in_config.sense = NRF_GPIOTE_POLARITY_HITOLO;
+                break;
+                    
+                default:
+                    // do nothing 
+                break;
             }
+            
+            in_config.pull = NRF_GPIO_PIN_NOPULL;
+            in_config.hi_accuracy = true;
+            in_config.skip_gpio_setup = false;
+            in_config.is_watcher = false;
+            
+            err_code = nrfx_gpiote_in_init(config.pin_number, &in_config ,GPIO_Handler);
+            APP_ERROR_CHECK(err_code);
+            
+            nrfx_gpiote_in_event_enable(config.pin_number, true);            
+        }
         break;
         
         case OUTPUT:
